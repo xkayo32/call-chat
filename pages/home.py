@@ -14,6 +14,7 @@ class HomePage(DataBase):
 
     def body(self):
         self.name = False
+        self.dados_cliente = False
         self.messages.append(('Bem vindo ao chat', 'Chat Call'))
         self.messages.append(('Digite seu nome de usuário', 'Chat Call'))
         with self.ui.right_drawer(bordered=True, elevated=True).style('display: flex;flex-direction: column;'):
@@ -52,8 +53,9 @@ class HomePage(DataBase):
 
     def __save_username(self, event):
         if self.name is False:
-            if any([self.username.value.lower().strip() == item[1].lower().strip() for item in self.rows_clients]):
+            if any([self.username.value.lower().strip() == item['nome'].lower().strip() for item in self.rows_clients]):
                 self.name = self.username.value
+                self.dados_cliente = self.__dados_cliente()
                 self.messages = list()
                 self.messages.append((f'Bem vindo {self.name}', 'Chat Call'))
                 self.messages.append(('Qual sua dúvida?', 'Chat Call'))
@@ -73,8 +75,8 @@ class HomePage(DataBase):
             self.chat_box.refresh()
 
     def __clientes(self):
-        self.rows_clients = self.select('clientes', '*')
-        rows = [{'nome': row[1], 'email': row[2], 'telefone': row[3], 'endereco': row[4], 'plano_id': row[5]}
+        self.rows_clients = self.select_itens('clientes')
+        rows = [{'nome': row['nome'], 'email': row['email'], 'telefone': row['telefone'], 'endereco': row['endereco'], 'plano_id': row['plano_id']}
                 for row in self.rows_clients]
         self.ui.table(
             columns=[
@@ -86,8 +88,9 @@ class HomePage(DataBase):
             ], rows=rows)
 
     def __planos(self):
-        self.rows_planos = self.select('planos', '*')
-        rows = [{'nome': row[1], 'valor': row[2]} for row in self.rows_planos]
+        self.rows_planos = self.select_itens('planos')
+        rows = [{'nome': row['nome'], 'valor': row['valor']}
+                for row in self.rows_planos]
         self.ui.table(
             columns=[
                 {'name': 'nome', 'label': 'Nome', 'field': 'nome'},
@@ -95,9 +98,9 @@ class HomePage(DataBase):
             ], rows=rows)
 
     def __faturas(self):
-        self.rows_faturas = self.select('faturas', '*')
-        rows = [{'cliente_id': row[1], 'valor': row[2], 'data_vencimento': row[3],
-                 'data_pagamento': row[4], 'pago': row[5]} for row in self.rows_faturas]
+        self.rows_faturas = self.select_itens('faturas')
+        rows = [{'cliente_id': row['cliente_id'], 'valor': row['valor'], 'data_vencimento': row['data_vencimento'],
+                 'data_pagamento': row['data_pagamento'], 'pago': row['pago']} for row in self.rows_faturas]
         self.ui.table(
             columns=[
                 {'name': 'cliente_id', 'label': 'Cliente', 'field': 'cliente_id'},
@@ -118,8 +121,21 @@ class HomePage(DataBase):
         self.username.value = ''
         self.message.visible = False
         self.name = False
+        self.dados_cliente = False
 
     @nicegui.ui.refreshable
     def chat_box(self):
         for text, user in self.messages:
             self.ui.chat_message(text=text, name=user)
+
+    def __dados_cliente(self):
+        if self.name is True:
+            self.cliente = self.select_itens('clientes', where_column='nome',
+                                             where_value=self.name)
+            self.faturas = self.select_itens('faturas', where_column='cliente_id',
+                                             where_value=self.cliente[0]['id'])
+            self.plano = self.select_itens('planos', where_column='id',
+                                           where_value=self.cliente[0]['plano_id'])
+            self.ordem_servico = self.select_itens('ordem_servico', where_column='cliente_id',
+                                                   where_value=self.cliente[0]['id'])
+            return self.cliente, self.faturas, self.plano, self.ordem_servico
